@@ -13,5 +13,8 @@
     "monetization",
     "metica"
   ],
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
+  },
   "license": "SEE LICENSE IN LICENSE.md"
 }
