@@ -1,0 +1,15 @@
+{
+  "name": "com.metica.analytics.abstractions",
+  "version": "1.0.0",
+  "displayName": "Metica Analytics Abstractions",
+  "description": "Analytics interface abstractions for Metica SDK",
+  "unity": "2021.3",
+  "author": {
+    "name": "Metica",
+    "url": "https://metica.com"
+  },
+  "keywords": [
+    "analytics",
+    "metica"
+  ]
+}

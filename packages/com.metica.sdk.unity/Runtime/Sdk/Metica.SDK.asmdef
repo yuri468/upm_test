@@ -1,0 +1,26 @@
+{
+    "name": "Metica.SDK",
+    "rootNamespace": "",
+    "references": [
+        "MeticaAnalyticsAbstractions",
+        "Metica.Core",
+        "Metica.Network",
+        "Unity.Nuget.Newtonsoft.Json",
+        "MaxSdk.Scripts"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.metica.analytics.abstractions",
+            "expression": "",
+            "define": "METICA_ANALYTICS"
+        }
+    ],
+    "noEngineReferences": false
+}

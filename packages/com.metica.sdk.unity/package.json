@@ -1,0 +1,17 @@
+{
+  "name": "com.metica.sdk.unity",
+  "displayName": "Metica SDK",
+  "version": "2.2.2",
+  "unity": "2022.3",
+  "description": "Metica SDK for Unity",
+  "author": {
+    "name": "Metica",
+    "url": "https://metica.com"
+  },
+  "keywords": [
+    "ads",
+    "monetization",
+    "metica"
+  ],
+  "license": "SEE LICENSE IN LICENSE.md"
+}
