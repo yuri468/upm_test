@@ -1,0 +1,157 @@
+name: Release POC
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_mode:
+        description: "What to release"
+        required: true
+        type: choice
+        default: sdk_only
+        options:
+          - sdk_only
+          - analytics_only
+          - both
+      sdk_version:
+        description: "SDK version (e.g. 2.2.5)"
+        required: false
+        type: string
+      analytics_version:
+        description: "Analytics version (e.g. 1.0.1)"
+        required: false
+        type: string
+      create_github_release:
+        description: "Create GitHub release(s)"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          MODE="${{ github.event.inputs.release_mode }}"
+          SDK_VERSION="${{ github.event.inputs.sdk_version }}"
+          ANALYTICS_VERSION="${{ github.event.inputs.analytics_version }}"
+          SEMVER='^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
+
+          if [[ "$MODE" == "sdk_only" || "$MODE" == "both" ]]; then
+            if [[ -z "$SDK_VERSION" ]]; then
+              echo "sdk_version is required for mode=$MODE"
+              exit 1
+            fi
+            if ! [[ "$SDK_VERSION" =~ $SEMVER ]]; then
+              echo "sdk_version must be semver-like, got: $SDK_VERSION"
+              exit 1
+            fi
+          fi
+
+          if [[ "$MODE" == "analytics_only" || "$MODE" == "both" ]]; then
+            if [[ -z "$ANALYTICS_VERSION" ]]; then
+              echo "analytics_version is required for mode=$MODE"
+              exit 1
+            fi
+            if ! [[ "$ANALYTICS_VERSION" =~ $SEMVER ]]; then
+              echo "analytics_version must be semver-like, got: $ANALYTICS_VERSION"
+              exit 1
+            fi
+          fi
+
+      - name: Update package versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          MODE="${{ github.event.inputs.release_mode }}"
+          SDK_VERSION="${{ github.event.inputs.sdk_version }}"
+          ANALYTICS_VERSION="${{ github.event.inputs.analytics_version }}"
+
+          if [[ "$MODE" == "sdk_only" || "$MODE" == "both" ]]; then
+            node -e "const fs=require('fs');const p='packages/com.metica.sdk.unity/package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=process.argv[1];fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');" "$SDK_VERSION"
+            echo "Updated com.metica.sdk.unity -> $SDK_VERSION"
+          fi
+
+          if [[ "$MODE" == "analytics_only" || "$MODE" == "both" ]]; then
+            node -e "const fs=require('fs');const p='packages/com.metica.analytics.abstractions/package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=process.argv[1];fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');" "$ANALYTICS_VERSION"
+            echo "Updated com.metica.analytics.abstractions -> $ANALYTICS_VERSION"
+          fi
+
+      - name: Commit version bump
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No file changes detected. Nothing to release."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/com.metica.sdk.unity/package.json packages/com.metica.analytics.abstractions/package.json
+          git commit -m "chore(release): bump package version(s)"
+
+      - name: Create git tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          MODE="${{ github.event.inputs.release_mode }}"
+          SDK_VERSION="${{ github.event.inputs.sdk_version }}"
+          ANALYTICS_VERSION="${{ github.event.inputs.analytics_version }}"
+
+          TAGS=()
+
+          if [[ "$MODE" == "sdk_only" || "$MODE" == "both" ]]; then
+            TAGS+=("com.metica.sdk.unity/$SDK_VERSION")
+          fi
+          if [[ "$MODE" == "analytics_only" || "$MODE" == "both" ]]; then
+            TAGS+=("com.metica.analytics.abstractions/$ANALYTICS_VERSION")
+          fi
+
+          for TAG in "${TAGS[@]}"; do
+            if git rev-parse "$TAG" >/dev/null 2>&1; then
+              echo "Tag already exists: $TAG"
+              exit 1
+            fi
+            git tag "$TAG"
+            echo "Created tag: $TAG"
+          done
+
+          {
+            echo "TAGS<<EOF"
+            printf "%s\n" "${TAGS[@]}"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Push commit and tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD
+          while IFS= read -r tag; do
+            [[ -z "$tag" ]] && continue
+            git push origin "$tag"
+          done <<< "${TAGS}"
+
+      - name: Create GitHub releases
+        if: ${{ github.event.inputs.create_github_release == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r tag; do
+            [[ -z "$tag" ]] && continue
+            gh release create "$tag" --title "$tag" --notes "POC release for $tag"
+          done <<< "${TAGS}"
